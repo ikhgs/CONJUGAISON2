@@ -22,12 +22,15 @@ def scrape_conjugations(verb):
         # Trouver tous les temps pour ce mode (par ex., "Présent", "Passé composé")
         tenses = mode.find_next_siblings("div", class_="verbebox")
         for tense in tenses:
-            tense_name = tense.find("a").text.strip()  # Le nom du temps (par ex., "Présent")
-            conjugations = tense.p.get_text().strip().split("\n")
-            conjugations = [conj.strip() for conj in conjugations if conj.strip()]  # Nettoyer les données
+            # Vérification si l'élément <a> existe
+            tense_link = tense.find("a")
+            if tense_link:
+                tense_name = tense_link.text.strip()  # Le nom du temps (par ex., "Présent")
+                conjugations = tense.p.get_text().strip().split("\n")
+                conjugations = [conj.strip() for conj in conjugations if conj.strip()]  # Nettoyer les données
 
-            # Ajouter le temps et ses conjugaisons dans la structure
-            verb_conjugations[mode_name][tense_name] = conjugations
+                # Ajouter le temps et ses conjugaisons dans la structure
+                verb_conjugations[mode_name][tense_name] = conjugations
 
     return verb_conjugations
 
@@ -58,4 +61,3 @@ def conjugate():
 # Exécuter l'application sur l'host 0.0.0.0 et le port 5000
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-            

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, request
 import requests
 from bs4 import BeautifulSoup
 
@@ -10,58 +10,52 @@ def scrape_conjugations(verb):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
 
-    # Dictionnaire pour stocker les conjugaisons
-    verb_conjugations = {
-        "Indicatif": {},
-        "Subjonctif": {},
-        "Conditionnel": {},
-        "Impératif": {},
-        "Infinitif": {},
-        "Participe": {}
-    }
+    # Dictionnaire pour stocker les conjugaisons par mode et temps
+    verb_conjugations = {}
 
-    # Récupérer les sections de titres des temps (Indicatif, Subjonctif, etc.)
-    verb_tenses = soup.find_all("div", class_="verbetitle")
-    verb_boxes = soup.find_all("div", class_="verbebox")
+    # Trouver tous les modes de conjugaison (par ex., "Indicatif", "Subjonctif", etc.)
+    modes = soup.find_all("div", class_="verbetitle")
+    for mode in modes:
+        mode_name = mode.find("h2").text.strip()  # Le nom du mode (par ex., "Indicatif")
+        verb_conjugations[mode_name] = {}
 
-    # Remplir chaque catégorie avec ses conjugaisons respectives
-    for i, tense in enumerate(verb_tenses):
-        tense_name = tense.h2.text.strip()
-        
-        if i < len(verb_boxes):
-            # Extraire les conjugaisons sous forme de liste
-            conjugations = verb_boxes[i].p.get_text().strip().split("\n")
-            
-            # Affecter aux bons modes verbaux
-            if "Indicatif" in tense_name:
-                verb_conjugations["Indicatif"][tense_name] = conjugations
-            elif "Subjonctif" in tense_name:
-                verb_conjugations["Subjonctif"][tense_name] = conjugations
-            elif "Conditionnel" in tense_name:
-                verb_conjugations["Conditionnel"][tense_name] = conjugations
-            elif "Impératif" in tense_name:
-                verb_conjugations["Impératif"][tense_name] = conjugations
-            elif "Infinitif" in tense_name:
-                verb_conjugations["Infinitif"][tense_name] = conjugations
-            elif "Participe" in tense_name:
-                verb_conjugations["Participe"][tense_name] = conjugations
+        # Trouver tous les temps pour ce mode (par ex., "Présent", "Passé composé")
+        tenses = mode.find_next_siblings("div", class_="verbebox")
+        for tense in tenses:
+            tense_name = tense.find("a").text.strip()  # Le nom du temps (par ex., "Présent")
+            conjugations = tense.p.get_text().strip().split("\n")
+            conjugations = [conj.strip() for conj in conjugations if conj.strip()]  # Nettoyer les données
 
-    # Renvoyer les conjugaisons collectées
+            # Ajouter le temps et ses conjugaisons dans la structure
+            verb_conjugations[mode_name][tense_name] = conjugations
+
     return verb_conjugations
 
-# Route pour afficher les conjugaisons en JSON via paramètre de requête
+# Route pour afficher les conjugaisons en HTML
 @app.route('/conjugaison', methods=['GET'])
 def conjugate():
     verb = request.args.get('verbe')  # Obtenir le verbe du paramètre de requête
     if not verb:
-        return jsonify({"error": "Aucun verbe fourni"}), 400  # Gérer les erreurs si aucun verbe n'est fourni
+        return "Aucun verbe fourni", 400  # Gérer les erreurs si aucun verbe n'est fourni
     
     # Scraper les conjugaisons du verbe donné
     conjugations = scrape_conjugations(verb)
-    
-    # Renvoyer le résultat en JSON
-    return jsonify(conjugations)
+
+    # Générer du HTML dynamique pour afficher les conjugaisons
+    html_content = f"<h1>Conjugaison du verbe {verb}</h1>"
+
+    for mode, tenses in conjugations.items():
+        html_content += f"<h2>{mode}</h2>"
+
+        for tense, conjugation in tenses.items():
+            html_content += f"<h3>{tense}</h3><ul>"
+            for line in conjugation:
+                html_content += f"<li>{line}</li>"
+            html_content += "</ul>"
+
+    return html_content
 
 # Exécuter l'application sur l'host 0.0.0.0 et le port 5000
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+            
